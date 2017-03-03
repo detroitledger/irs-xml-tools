@@ -5,6 +5,10 @@ import pandas
 import re
 import csv
 
+import ijson
+import boto3
+
+from forms_990_indicies import Forms990Indicies
 
 def ListFromIRSIndex(pathOfIndex):
 	#Given a local path to an IRS 990 index json file, output its entries as a list
@@ -31,10 +35,12 @@ def GetEINfromDic(dic):
 		listEIN.append(dic[n]['EIN'])
 	return set(listEIN)
 
-	
-
-set2= GetEINfromDic(GetEinFromOrg('organizations.csv'))
-
+"""
+Grab the Ledger CSVs and build a list of EINs
+"""
+def GetListOfOurEINs():
+    set2= GetEINfromDic(GetEinFromOrg('organizations.csv'))
+    return set2
 
 def FliterList(list1,set2):
 #	Given a IRS 990 index list and a set of EINs (numbers), output a list only the entries that match those given EINs.
@@ -69,7 +75,6 @@ def GetEINwXML(jsonlist):
 	#infile.close()
 	return reducedInfoListOfOrg
 
- 
 
 def GetScheduleI(lis,year):
 	lsScheduleI=[]
@@ -80,7 +85,7 @@ def GetScheduleI(lis,year):
 		baseurl =n[u'URL']
 		req = requests.get(baseurl)
 		req2 = req.content.decode("utf-8-sig").encode("utf-8")
-		
+
 		if req2.find('IRS990ScheduleI') == -1: #Check if there is IRS990ScheduleI. if not, skip that EIN
 			continue
 		
@@ -135,6 +140,63 @@ def GetScheduleI(lis,year):
 	# with open('lsScheduleI'+str(year)+'.json', 'w') as f:
 	# 	f.write(json.dumps(lsScheduleI))
 
+"""
+Given a URL pointing at an IRS Form 990 XML, return a dict that represents its Schedule I data, or false.
+"""
+def GetScheduleIUrlOnly(url):
+    req = requests.get(url)
+    req2 = req.content.decode("utf-8-sig").encode("utf-8")
+
+    if req2.find('IRS990ScheduleI') == -1: #Check if there is IRS990ScheduleI. if not, skip that EIN
+        return 'Error: no schedule I for ' + url
+
+    try:
+        pattern = re.compile(ur'returnVersion.*(20[01][0-9]v[0-9.]+)', re.UNICODE)
+        version= pattern.search(req2).group(1)
+    except:
+        print "Error: Didn't find the return Version from XML : "+ url
+        # Check the url link and modify the reg expression
+
+    d = xmltodict.parse(req2)
+    dicInstance={}
+
+    VersionSet=set(['2009v1.2', '2009v1.3', '2009v1.7', '2009v1.4', '2012v2.1', '2012v2.0', '2012v2.3', '2012v2.2', '2011v1.5', '2011v1.3', '2011v1.2', '2010v3.6', '2010v3.7', '2010v3.4', '2010v3.2'])
+
+    try:
+        dicInstance['EIN']=d['Return']['ReturnHeader']['Filer']['EIN']
+        dicInstance['RecipientDic']=d['Return']['ReturnData']['IRS990ScheduleI']
+
+        if version in VersionSet:
+            dicInstance['OrgName']=d['Return']['ReturnHeader']['Filer']['Name']['BusinessNameLine1']
+            dicInstance['TaxPeriodBeginDt']=d['Return']['ReturnHeader']['TaxPeriodBeginDate']
+            dicInstance['TaxPeriodEndDt']=d['Return']['ReturnHeader']['TaxPeriodEndDate']
+
+        elif version in ['2013v3.1','2013v3.0','2013v4.0']:
+            dicInstance['OrgName']=d['Return']['ReturnHeader']['Filer']['BusinessName']['BusinessNameLine1']
+            dicInstance['TaxPeriodBeginDt']=d['Return']['ReturnHeader']['TaxPeriodBeginDt']
+            dicInstance['TaxPeriodEndDt']=d['Return']['ReturnHeader']['TaxPeriodEndDt']
+
+        elif version in ['2014v5.0','2014v6.0','2015v2.1']:
+            dicInstance['OrgName']=d['Return']['ReturnHeader']['Filer']['BusinessName']['BusinessNameLine1Txt']
+            dicInstance['TaxPeriodBeginDt']=d['Return']['ReturnHeader']['TaxPeriodBeginDt']
+            dicInstance['TaxPeriodEndDt']=d['Return']['ReturnHeader']['TaxPeriodEndDt']
+
+
+        else:
+            dicInstance['OrgName']=d['Return']['ReturnHeader']['Filer']['BusinessName']['BusinessNameLine1']
+            dicInstance['TaxPeriodBeginDt']=d['Return']['ReturnHeader']['TaxPeriodBeginDate']
+            dicInstance['TaxPeriodEndDt']=d['Return']['ReturnHeader']['TaxPeriodEndDate']
+
+    except:
+         print 'No parser for version: '+ version
+         print "It's corresponding url is " + url
+
+    return dicInstance
+    #return a list of dictionary: ['EIN': ,  ''RecipientDic'': , 'OrgName': , 'TaxPeriodBeginDt': , ''TaxPeriodEndDt']
+    # with open('lsScheduleI'+str(year)+'.json', 'w') as f:
+    #     f.write(json.dumps(lsScheduleI))
+
+
 
 
 def FinalCsv(listJson,year):
@@ -184,17 +246,43 @@ def FinalCsv(listJson,year):
 		writer.writerow(['GrantId','toName','fromName','amount','toEIN','fromEIN','stratYear','endYear','description'])
 		for oneGrant in lsGrant:
 	 		writer.writerow(oneGrant)
-    	
+
+def OneWayToGetData():
+  set2 = GetListOfOurEINs()
+  #for n in range(2017,2018):
+  for n in range(2011,2018):
+    finalFilterAllYear = FliterList(ListFromIRSIndex('index_'+str(n)+'.json'),set2)
+    afile = GetScheduleI(GetEINwXML(finalFilterAllYear),n)
+    FinalCsv(afile,n)
 
 
-#for n in range(2017,2018):
-for n in range(2011,2018):
-	finalFilterAllYear = FliterList(ListFromIRSIndex('index_'+str(n)+'.json'),set2)
-	afile = GetScheduleI(GetEINwXML(finalFilterAllYear),n)
-	FinalCsv(afile,n)
+def AnotherWayToGetData():
+    # Get a seq of the Ledger EINs that we want to watch out for.
+    our_eins = GetListOfOurEINs()
+
+    # Set up our index file client.
+    s3_resource = boto3.resource('s3')
+    indicies = Forms990Indicies(s3_resource)
+    indicies.save_all_indicies()
+
+    # Start a stream of the index JSON.
+    # If an EIN comes through that's in our_eins, take note of the following URL
+    should_grab = False
+    fd = open('cached-data/index_2017.json')
+    parser = ijson.parse(fd)
+
+    i = 0
 
 
-
+    for prefix, event, value in parser:
+        if i > 50:
+            break
+        if event == 'string':
+            if prefix.endswith('.item.EIN'):
+                should_grab = value in our_eins
+            if should_grab == True and prefix.endswith('.item.URL'):
+                print GetScheduleIUrlOnly(value)
+                i += 1
 
 
 #All different version for 

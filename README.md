@@ -14,9 +14,15 @@ There are seventeen separate schemas used. Check out [the archive.org mirror of 
 
 ## Run
 
+First, download [the CSV of Ledger organizations](https://data.detroitledger.org/sites/default/files/organizations.csv) into this directory.
+
 ```
 pip install -r requirements.txt
 ```
+
+To output a CSV, run `OneWayToGetData()` in ipython after `run final_xml_parser.py`
+
+Alternatively, see `AnotherWayToGetData()` for an example of parsing a single index json as a stream.
 
 ## Develop
 
