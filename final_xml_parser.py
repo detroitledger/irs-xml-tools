@@ -106,12 +106,12 @@ def GetScheduleI(lis,year):
         try:
             dicInstance['EIN']=d['Return']['ReturnHeader']['Filer']['EIN']
             dicInstance['RecipientDic']=d['Return']['ReturnData']['IRS990ScheduleI']
-             if version in VersionSet:
-                 dicInstance['OrgName']=d['Return']['ReturnHeader']['Filer']['Name']['BusinessNameLine1']
-                 dicInstance['TaxPeriodBeginDt']=d['Return']['ReturnHeader']['TaxPeriodBeginDate']
-                 dicInstance['TaxPeriodEndDt']=d['Return']['ReturnHeader']['TaxPeriodEndDate']
+            if version in VersionSet:
+                dicInstance['OrgName']=d['Return']['ReturnHeader']['Filer']['Name']['BusinessNameLine1']
+                dicInstance['TaxPeriodBeginDt']=d['Return']['ReturnHeader']['TaxPeriodBeginDate']
+                dicInstance['TaxPeriodEndDt']=d['Return']['ReturnHeader']['TaxPeriodEndDate']
 
-             elif version in ['2013v3.1','2013v3.0','2013v4.0']:
+            elif version in ['2013v3.1','2013v3.0','2013v4.0']:
                 dicInstance['OrgName']=d['Return']['ReturnHeader']['Filer']['BusinessName']['BusinessNameLine1']
                 dicInstance['TaxPeriodBeginDt']=d['Return']['ReturnHeader']['TaxPeriodBeginDt']
                 dicInstance['TaxPeriodEndDt']=d['Return']['ReturnHeader']['TaxPeriodEndDt']
@@ -123,15 +123,15 @@ def GetScheduleI(lis,year):
 
 
             else:
-                 dicInstance['OrgName']=d['Return']['ReturnHeader']['Filer']['BusinessName']['BusinessNameLine1']
-                 dicInstance['TaxPeriodBeginDt']=d['Return']['ReturnHeader']['TaxPeriodBeginDate']
-                 dicInstance['TaxPeriodEndDt']=d['Return']['ReturnHeader']['TaxPeriodEndDate']
+                dicInstance['OrgName']=d['Return']['ReturnHeader']['Filer']['BusinessName']['BusinessNameLine1']
+                dicInstance['TaxPeriodBeginDt']=d['Return']['ReturnHeader']['TaxPeriodBeginDate']
+                dicInstance['TaxPeriodEndDt']=d['Return']['ReturnHeader']['TaxPeriodEndDate']
 
 
 
         except:
-             print 'No parser for version: '+ version
-             print "It's corresponding baseurl is " + baseurl
+            print 'No parser for version: '+ version
+            print "It's corresponding baseurl is " + baseurl
         lsScheduleI.append(dicInstance)
 
 
@@ -284,6 +284,7 @@ def AnotherWayToGetData():
                 print GetScheduleIUrlOnly(value)
                 i += 1
 
+AnotherWayToGetData()
 
 #All different version for
 #2017 ['2015v2.1']
