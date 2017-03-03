@@ -121,19 +121,15 @@ def GetScheduleI(lis,year):
                 dicInstance['TaxPeriodBeginDt']=d['Return']['ReturnHeader']['TaxPeriodBeginDt']
                 dicInstance['TaxPeriodEndDt']=d['Return']['ReturnHeader']['TaxPeriodEndDt']
 
-
             else:
                 dicInstance['OrgName']=d['Return']['ReturnHeader']['Filer']['BusinessName']['BusinessNameLine1']
                 dicInstance['TaxPeriodBeginDt']=d['Return']['ReturnHeader']['TaxPeriodBeginDate']
                 dicInstance['TaxPeriodEndDt']=d['Return']['ReturnHeader']['TaxPeriodEndDate']
 
-
-
         except:
             print 'No parser for version: '+ version
             print "It's corresponding baseurl is " + baseurl
         lsScheduleI.append(dicInstance)
-
 
     return lsScheduleI
     #return a list of dictionary: ['EIN': ,  ''RecipientDic'': , 'OrgName': , 'TaxPeriodBeginDt': , ''TaxPeriodEndDt']
@@ -143,9 +139,18 @@ def GetScheduleI(lis,year):
 """
 Given a URL pointing at an IRS Form 990 XML, return a dict that represents its Schedule I data, or false.
 """
-def GetScheduleIUrlOnly(url):
-    req = requests.get(url)
-    req2 = req.content.decode("utf-8-sig").encode("utf-8")
+def GetScheduleIUrlOnly(url, s3_resource):
+    #req = requests.get(url)
+    # Change the HTTP URL to an AWS bucket & object name.
+    s3_url_pattern = re.compile(ur'https...s3.amazonaws.com\/([a-zA-Z0-9-]*)\/(.*)', re.UNICODE)
+    matches = s3_url_pattern.search(url)
+    bucket_name = matches.group(1)
+    object_name = matches.group(2)
+
+    response = s3_resource.Object(bucket_name, object_name).get()
+    xmlstring = response['Body'].read()
+
+    req2 = xmlstring.decode("utf-8-sig").encode("utf-8")
 
     if req2.find('IRS990ScheduleI') == -1: #Check if there is IRS990ScheduleI. if not, skip that EIN
         return 'Error: no schedule I for ' + url
@@ -273,7 +278,6 @@ def AnotherWayToGetData():
 
     i = 0
 
-
     for prefix, event, value in parser:
         if i > 50:
             break
@@ -281,7 +285,7 @@ def AnotherWayToGetData():
             if prefix.endswith('.item.EIN'):
                 should_grab = value in our_eins
             if should_grab == True and prefix.endswith('.item.URL'):
-                print GetScheduleIUrlOnly(value)
+                print GetScheduleIUrlOnly(value, s3_resource)
                 i += 1
 
 AnotherWayToGetData()
