@@ -2,9 +2,7 @@
 
 Python scripts to process [IRS 990 XML data](https://aws.amazon.com/public-datasets/irs-990/)
 
-** Work in progress**
-
-https://detriot.org/its-sort-of-a-big-data-irs-990-xml-data/
+**Work in progress.** [Background on the project](https://detriot.org/its-sort-of-a-big-data-irs-990-xml-data/)
 
 ## Overview
 
