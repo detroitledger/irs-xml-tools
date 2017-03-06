@@ -140,7 +140,6 @@ def GetScheduleI(lis,year):
 Given a URL pointing at an IRS Form 990 XML, return a dict that represents its Schedule I data, or false.
 """
 def GetScheduleIUrlOnly(url, s3_resource):
-    #req = requests.get(url)
     # Change the HTTP URL to an AWS bucket & object name.
     s3_url_pattern = re.compile(ur'https...s3.amazonaws.com\/([a-zA-Z0-9-]*)\/(.*)', re.UNICODE)
     matches = s3_url_pattern.search(url)
@@ -153,55 +152,48 @@ def GetScheduleIUrlOnly(url, s3_resource):
     req2 = xmlstring.decode("utf-8-sig").encode("utf-8")
 
     if req2.find('IRS990ScheduleI') == -1: #Check if there is IRS990ScheduleI. if not, skip that EIN
-        return 'Error: no schedule I for ' + url
+        return None
 
     try:
         pattern = re.compile(ur'returnVersion.*(20[01][0-9]v[0-9.]+)', re.UNICODE)
-        version= pattern.search(req2).group(1)
+        version = pattern.search(req2).group(1)
     except:
-        print "Error: Didn't find the return Version from XML : "+ url
-        # Check the url link and modify the reg expression
+        raise ValueError("Didn't find the return Version from XML : " + url)
 
     d = xmltodict.parse(req2)
     dicInstance={}
 
-    VersionSet=set(['2009v1.2', '2009v1.3', '2009v1.7', '2009v1.4', '2012v2.1', '2012v2.0', '2012v2.3', '2012v2.2', '2011v1.5', '2011v1.3', '2011v1.2', '2010v3.6', '2010v3.7', '2010v3.4', '2010v3.2'])
+    VersionSet = set(['2009v1.2', '2009v1.3', '2009v1.7', '2009v1.4', '2012v2.1', '2012v2.0', '2012v2.3', '2012v2.2', '2011v1.5', '2011v1.3', '2011v1.2', '2010v3.6', '2010v3.7', '2010v3.4', '2010v3.2'])
 
     try:
-        dicInstance['EIN']=d['Return']['ReturnHeader']['Filer']['EIN']
-        dicInstance['RecipientDic']=d['Return']['ReturnData']['IRS990ScheduleI']
+        dicInstance['EIN'] = d['Return']['ReturnHeader']['Filer']['EIN']
+        dicInstance['RecipientDic'] = d['Return']['ReturnData']['IRS990ScheduleI']
 
         if version in VersionSet:
-            dicInstance['OrgName']=d['Return']['ReturnHeader']['Filer']['Name']['BusinessNameLine1']
-            dicInstance['TaxPeriodBeginDt']=d['Return']['ReturnHeader']['TaxPeriodBeginDate']
-            dicInstance['TaxPeriodEndDt']=d['Return']['ReturnHeader']['TaxPeriodEndDate']
+            dicInstance['OrgName'] = d['Return']['ReturnHeader']['Filer']['Name']['BusinessNameLine1']
+            dicInstance['TaxPeriodBeginDt'] = d['Return']['ReturnHeader']['TaxPeriodBeginDate']
+            dicInstance['TaxPeriodEndDt'] = d['Return']['ReturnHeader']['TaxPeriodEndDate']
 
         elif version in ['2013v3.1','2013v3.0','2013v4.0']:
-            dicInstance['OrgName']=d['Return']['ReturnHeader']['Filer']['BusinessName']['BusinessNameLine1']
-            dicInstance['TaxPeriodBeginDt']=d['Return']['ReturnHeader']['TaxPeriodBeginDt']
-            dicInstance['TaxPeriodEndDt']=d['Return']['ReturnHeader']['TaxPeriodEndDt']
+            dicInstance['OrgName'] = d['Return']['ReturnHeader']['Filer']['BusinessName']['BusinessNameLine1']
+            dicInstance['TaxPeriodBeginDt'] = d['Return']['ReturnHeader']['TaxPeriodBeginDt']
+            dicInstance['TaxPeriodEndDt'] = d['Return']['ReturnHeader']['TaxPeriodEndDt']
 
         elif version in ['2014v5.0','2014v6.0','2015v2.1']:
-            dicInstance['OrgName']=d['Return']['ReturnHeader']['Filer']['BusinessName']['BusinessNameLine1Txt']
-            dicInstance['TaxPeriodBeginDt']=d['Return']['ReturnHeader']['TaxPeriodBeginDt']
-            dicInstance['TaxPeriodEndDt']=d['Return']['ReturnHeader']['TaxPeriodEndDt']
+            dicInstance['OrgName'] = d['Return']['ReturnHeader']['Filer']['BusinessName']['BusinessNameLine1Txt']
+            dicInstance['TaxPeriodBeginDt'] = d['Return']['ReturnHeader']['TaxPeriodBeginDt']
+            dicInstance['TaxPeriodEndDt'] = d['Return']['ReturnHeader']['TaxPeriodEndDt']
 
 
         else:
-            dicInstance['OrgName']=d['Return']['ReturnHeader']['Filer']['BusinessName']['BusinessNameLine1']
-            dicInstance['TaxPeriodBeginDt']=d['Return']['ReturnHeader']['TaxPeriodBeginDate']
-            dicInstance['TaxPeriodEndDt']=d['Return']['ReturnHeader']['TaxPeriodEndDate']
+            dicInstance['OrgName'] = d['Return']['ReturnHeader']['Filer']['BusinessName']['BusinessNameLine1']
+            dicInstance['TaxPeriodBeginDt'] = d['Return']['ReturnHeader']['TaxPeriodBeginDate']
+            dicInstance['TaxPeriodEndDt'] = d['Return']['ReturnHeader']['TaxPeriodEndDate']
 
     except:
-         print 'No parser for version: '+ version
-         print "It's corresponding url is " + url
+        raise ValueError("No parser for version " + version + " at url " + url)
 
     return dicInstance
-    #return a list of dictionary: ['EIN': ,  ''RecipientDic'': , 'OrgName': , 'TaxPeriodBeginDt': , ''TaxPeriodEndDt']
-    # with open('lsScheduleI'+str(year)+'.json', 'w') as f:
-    #     f.write(json.dumps(lsScheduleI))
-
-
 
 
 def FinalCsv(listJson,year):
@@ -273,22 +265,23 @@ def AnotherWayToGetData():
     # Start a stream of the index JSON.
     # If an EIN comes through that's in our_eins, take note of the following URL
     should_grab = False
-    fd = open('cached-data/index_2017.json')
-    parser = ijson.parse(fd)
 
     i = 0
 
-    for prefix, event, value in parser:
-        if i > 50:
-            break
-        if event == 'string':
-            if prefix.endswith('.item.EIN'):
-                should_grab = value in our_eins
-            if should_grab == True and prefix.endswith('.item.URL'):
-                print GetScheduleIUrlOnly(value, s3_resource)
-                i += 1
+    for fd in indicies.saved_jsons.values():
+        parser = ijson.parse(fd)
+        for prefix, event, value in parser:
+            if event == 'string':
+                if prefix.endswith('.item.EIN'):
+                    should_grab = value in our_eins
+                if should_grab == True and prefix.endswith('.item.URL'):
+                    # Uncommenting this would actually grab the resource & log it:
+                    #print GetScheduleIUrlOnly(value, s3_resource)
+                    i += 1
 
-AnotherWayToGetData()
+    print "done, would grab this many: " + str(i)
+
+#AnotherWayToGetData()
 
 #All different version for
 #2017 ['2015v2.1']
