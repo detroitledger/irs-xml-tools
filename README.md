@@ -2,9 +2,7 @@
 
 Python scripts to process [IRS 990 XML data](https://aws.amazon.com/public-datasets/irs-990/)
 
-# WORK IN PROGRESS
-
-obviously lol
+** Work in progress**
 
 https://detriot.org/its-sort-of-a-big-data-irs-990-xml-data/
 
@@ -41,3 +39,7 @@ Get coverage reports for all modules by running:
 ```
 nosetests --with-coverage --cover-package=`find . -name '*.py' | sed 's/^\.\///' | sed 's/\.py$//' | grep -v _test.py | paste -s -d, -`
 ```
+
+## Related tools 
+
+* [Charity Navigator's IRS 990 Toolkit](https://github.com/CharityNavigator/irs990)
